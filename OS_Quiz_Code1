@@ -1,135 +1,178 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <limits.h>
+#include <stdio.h>  // For standard input/output functions like printf, scanf
+#include <stdlib.h> // For memory allocation functions like malloc, free, and general utilities
+#include <stdbool.h> // For boolean type (true/false)
+#include <limits.h> // For INT_MAX, used in Optimal algorithm to find the farthest page
 
-    int LRU(int pages[], int n, int frames){
-        int *memory = (int *)malloc(frames * sizeof(int));
-        int *last_used = (int *)malloc(frames *sizeof(int));
-        int page_faults = 0;
-    
-        // This for initialization
-        for (int i = 0; i < frames; i++){
-            memory[i] = -1;
-            last_used[i] = -1;
-        }
-        
-        for (int i = 0; i < n; i++){
-            bool found = false;
-            
-            // Check for it if its in memory
-            for (int j = 0; j<frames; j++){
-                if (memory[j] == pages[i]) {
-                    found = true;
-                    last_used[j] = i;
-                    break;
-                }
-            }
-            
-            //Handles if its not found 
-            if (!found){
-                page_faults++;
-                int lru_index = 0;
-                int min = last_used[0];
-                
-                for (int j = 1; j<frames; j++){
-                    if (last_used[j] < min){
-                        min = last_used[j];
-                        lru_index = j;
-                    }
-                }
-                
-                //Replace LRU page
-                memory[lru_index] = pages[i];
-                last_used[lru_index];
-            }
-        }
-        
-        free(memory);
-        free(last_used);
-        return page_faults;
-    }
-    
-    int optimal(int pages[], int n, int frames) {
+// Function to simulate LRU (Least Recently Used) page replacement algorithm
+// pages: array of page references
+// n: number of page references
+// frames: number of available frames in memory
+int LRU(int pages[], int n, int frames) {
+    // Dynamically allocate memory for 'frames' (physical memory)
+    // Each element will store a page number, -1 indicates an empty frame
     int *memory = (int *)malloc(frames * sizeof(int));
-    int page_faults = 0;
-    
-    // Initialize memory
+    // Dynamically allocate memory to track the last time each frame was used
+    // The value will be the index 'i' from the pages array when the page in memory[j] was last referenced
+    int *last_used = (int *)malloc(frames * sizeof(int));
+    int page_faults = 0; // Counter for page faults
+
+    // Initialize memory frames and last_used timestamps
     for (int i = 0; i < frames; i++) {
-        memory[i] = -1; 
+        memory[i] = -1;    // -1 indicates an empty frame
+        last_used[i] = -1; // -1 indicates the frame has not been used yet
     }
-    
+
+    // Process each page reference in the input sequence
     for (int i = 0; i < n; i++) {
-        bool found = false;
-        
-        // Check if page is already in memory
+        bool found = false; // Flag to check if the current page is already in memory
+
+        // Check if the current page (pages[i]) is already in one of the memory frames
         for (int j = 0; j < frames; j++) {
             if (memory[j] == pages[i]) {
-                found = true;
+                found = true;      // Page found in memory (a "hit")
+                last_used[j] = i;  // Update the last used time for this frame to the current time 'i'
+                break;             // No need to check other frames
+            }
+        }
+
+        // If the page was not found in memory (a "miss" or "page fault")
+        if (!found) {
+            page_faults++; // Increment page fault count
+
+            // Find the frame to replace using LRU logic
+            // The frame to replace is the one whose 'last_used' time is the smallest (oldest)
+            int lru_index = 0;         // Index of the frame to be replaced
+            int min_last_used_time = last_used[0]; // Assume the first frame is the LRU initially
+
+            // Iterate through all frames to find the actual LRU frame
+            // (the one with the smallest/oldest 'last_used' timestamp)
+            for (int j = 1; j < frames; j++) {
+                if (last_used[j] < min_last_used_time) {
+                    min_last_used_time = last_used[j];
+                    lru_index = j;
+                }
+            }
+
+            // Replace the page in the LRU frame (memory[lru_index]) with the current page (pages[i])
+            memory[lru_index] = pages[i];
+            // Update the last used time for this newly loaded page to the current time 'i'
+            last_used[lru_index] = i; // Corrected: was `last_used[lru_index];` which did nothing
+        }
+        // (Optional: print memory state after each reference for debugging/visualization)
+    }
+
+    // Free the dynamically allocated memory before returning
+    free(memory);
+    free(last_used);
+    return page_faults; // Return the total count of page faults
+}
+
+// Function to simulate Optimal page replacement algorithm
+// pages: array of page references
+// n: number of page references
+// frames: number of available frames in memory
+int optimal(int pages[], int n, int frames) {
+    // Dynamically allocate memory for 'frames' (physical memory)
+    int *memory = (int *)malloc(frames * sizeof(int));
+    int page_faults = 0; // Counter for page faults
+
+    // Initialize memory frames to -1 (empty)
+    for (int i = 0; i < frames; i++) {
+        memory[i] = -1;
+    }
+
+    // Process each page reference in the input sequence
+    for (int i = 0; i < n; i++) {
+        bool found = false; // Flag to check if the current page is already in memory
+
+        // Check if the current page (pages[i]) is already in memory
+        for (int j = 0; j < frames; j++) {
+            if (memory[j] == pages[i]) {
+                found = true; // Page found (a "hit")
                 break;
             }
         }
-        
+
+        // If the page was not found in memory (a "miss" or "page fault")
         if (!found) {
-            page_faults++;
-            bool empty_frame = false;
-            
-            // Check for empty frames first
+            page_faults++; // Increment page fault count
+            bool empty_frame_found = false; // Flag to check if an empty frame is available
+
+            // First, try to find an empty frame to place the new page
             for (int j = 0; j < frames; j++) {
-                if (memory[j] == -1) {
-                    memory[j] = pages[i];
-                    empty_frame = true;
+                if (memory[j] == -1) { // If an empty frame is found
+                    memory[j] = pages[i];       // Place the page in this empty frame
+                    empty_frame_found = true; // Mark that an empty frame was used
                     break;
                 }
             }
-            
-            if (!empty_frame) {
-                // Find which page to replace
-                int farthest = -1, replace_index = 0;
-                
+
+            // If no empty frame was found, we need to replace an existing page
+            if (!empty_frame_found) {
+                // Find the page in memory that will not be used for the longest period in the future
+                int farthest_future_use = -1; // Stores the index in 'pages' of the farthest future use
+                int replace_index = 0;        // Index of the frame in 'memory' to be replaced
+
+                // Iterate through each page currently in memory (each frame)
                 for (int j = 0; j < frames; j++) {
-                    int k;
-                    for (k = i + 1; k < n; k++) {
-                        if (memory[j] == pages[k]) {
-                            if (k > farthest) {
-                                farthest = k;
-                                replace_index = j;
+                    int future_occurrence_index;
+                    // Look for the next occurrence of the page memory[j] in the *remaining* page reference string (pages[i+1] to pages[n-1])
+                    for (future_occurrence_index = i + 1; future_occurrence_index < n; future_occurrence_index++) {
+                        if (memory[j] == pages[future_occurrence_index]) {
+                            // If this page's future occurrence is farther than the current 'farthest_future_use', update
+                            if (future_occurrence_index > farthest_future_use) {
+                                farthest_future_use = future_occurrence_index;
+                                replace_index = j; // This frame's page will be used furthest in the future
                             }
-                            break;
+                            break; // Found the next occurrence of memory[j], move to the next frame
                         }
                     }
-                    if (k == n) {
-                        replace_index = j;
-                        break;
+                    // If the page memory[j] is not found in the rest of the reference string (it won't be used again)
+                    if (future_occurrence_index == n) {
+                        replace_index = j; // This page is a perfect candidate for replacement
+                        break; // No need to check other frames, as this one won't be used again
                     }
                 }
+                // Replace the page at 'replace_index' with the current page
                 memory[replace_index] = pages[i];
             }
         }
+        // (Optional: print memory state after each reference for debugging/visualization)
     }
-    
+
+    // Free the dynamically allocated memory
     free(memory);
-    return page_faults;
+    return page_faults; // Return the total count of page faults
 }
 
-int main(){
-    int frames, n;
-    
+// Main function to drive the program
+int main() {
+    int frames, n; // 'frames' is the number of memory frames, 'n' is the length of the page reference string
+
     printf("Enter number of frames: ");
     scanf("%d", &frames);
-    
-    printf("Enter length of page reference: ");
+
+    printf("Enter length of page reference string: ");
     scanf("%d", &n);
-    
+
+    // Dynamically allocate memory for the page reference string
     int *pages = (int *)malloc(n * sizeof(int));
-    printf("Enter page reference string: ");
-    for (int i = 0; i < n; i++){
+    if (pages == NULL) { // Check if malloc was successful
+        printf("Failed to allocate memory for page reference string.\n");
+        return 1; // Exit with an error code
+    }
+
+    printf("Enter page reference string (separated by spaces): ");
+    for (int i = 0; i < n; i++) {
         scanf("%d", &pages[i]);
     }
-    
+
+    // Call LRU algorithm and print the number of page faults
     printf("\nLRU Page Faults: %d\n", LRU(pages, n, frames));
-    printf("Optimal Page Faulst: %d\n", optimal(pages, n, frames));
-    
+    // Call Optimal algorithm and print the number of page faults
+    printf("Optimal Page Faults: %d\n", optimal(pages, n, frames)); // Corrected typo: Faulst -> Faults
+
+    // Free the dynamically allocated memory for the page reference string
     free(pages);
-    return 0;
+    return 0; // Indicate successful execution
 }
