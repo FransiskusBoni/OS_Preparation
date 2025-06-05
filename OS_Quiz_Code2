@@ -1,0 +1,205 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
+
+#define MAX_REQUESTS 100
+#define MAX_TRACK 199
+
+//Sort array in ascending order
+void sort_ascending(int arr[], int n) {
+    for (int i = 0; i < n-1; i++) {
+        for (int j = 0; j < n-i-1; j++) {
+            if (arr[j] > arr[j+1]) {
+                int temp = arr[j];
+                arr[j] = arr[j+1];
+                arr[j+1] = temp;
+            }
+        }
+    }
+}
+
+//Sort array in descending order
+void sort_descending(int arr[], int n) {
+    for (int i = 0; i < n-1; i++) {
+        for (int j = 0; j < n-i-1; j++) {
+            if (arr[j] < arr[j+1]) {
+                int temp = arr[j];
+                arr[j] = arr[j+1];
+                arr[j+1] = temp;
+            }
+        }
+    }
+}
+
+// C-Scan
+void c_scan(int head, int requests[], int n, char direction[]) {
+    int total_movement = 0;
+    int current_pos = head;
+    int sequence[MAX_REQUESTS + 2]; // Extra space for end points
+    int seq_index = 0;
+    
+    printf("\n[Algoritma: C-SCAN]\n");
+    printf("Arah awal: %s\n", direction);
+    printf("Urutan pelayanan:\n");
+    
+    // Create a copy for requests
+    int sorted_requests[MAX_REQUESTS];
+    memcpy(sorted_requests, requests, n * sizeof(int));
+    
+    if (strcmp(direction, "naik") == 0) {
+        sort_ascending(sorted_requests, n);
+        
+        for (int i = 0; i < n; i++) {
+            if (sorted_requests[i] >= current_pos) {
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+        
+        if (current_pos != MAX_TRACK) {
+            printf("%d -> %d -> ", current_pos, MAX_TRACK);
+            total_movement += MAX_TRACK - current_pos;
+            current_pos = 0;
+            total_movement += MAX_TRACK; // From MAX_TRACK to 0
+        }
+        
+        for (int i = 0; i < n; i++) {
+            if (sorted_requests[i] < head) {
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+    } else { // direction is "turun"
+        sort_descending(sorted_requests, n);
+        
+        for (int i = 0; i < n; i++) {
+            if (sorted_requests[i] <= current_pos) {
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+        
+        if (current_pos != 0) {
+            printf("%d -> 0 -> ", current_pos);
+            total_movement += current_pos; // From current_pos to 0
+            current_pos = MAX_TRACK;
+            total_movement += MAX_TRACK; // From 0 to MAX_TRACK
+        }
+        
+        for (int i = 0; i < n; i++) {
+            if (sorted_requests[i] > head) {
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+    }
+    
+    printf("%d\n", current_pos);
+    printf("\nTotal pergerakan head: %d\n", total_movement);
+}
+
+// C-Look
+void c_look(int head, int requests[], int n, char direction[]) {
+    int total_movement = 0;
+    int current_pos = head;
+    int sequence[MAX_REQUESTS];
+    int seq_index = 0;
+    
+    printf("\n[Algoritma: C-LOOK]\n");
+    printf("Arah awal: %s\n", direction);
+    printf("Urutan pelayanan:\n");
+    
+    // Create copy requests
+    int sorted_requests[MAX_REQUESTS];
+    memcpy(sorted_requests, requests, n * sizeof(int));
+    
+    if (strcmp(direction, "naik") == 0) {
+        sort_ascending(sorted_requests, n);
+        
+        for (int i = 0; i < n; i++) {
+            if (sorted_requests[i] >= current_pos) {
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+        
+        for (int i = 0; i < n; i++) {
+            if (sorted_requests[i] < head) {
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+    } else { 
+        sort_descending(sorted_requests, n);
+        
+        for (int i = 0; i < n; i++) {
+            if (sorted_requests[i] <= current_pos) {
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+        
+        // Jump to the last request without going to 0
+        for (int i = 0; i < n; i++) {
+            if (sorted_requests[i] > head) {
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+    }
+    
+    printf("%d\n", current_pos);
+    printf("\nTotal pergerakan head: %d\n", total_movement);
+}
+
+int main() {
+    int head, n;
+    char direction[10];
+    int requests[MAX_REQUESTS];
+    char algorithm[10];
+    
+    // Read input from file or user
+    printf("Head start: ");
+    scanf("%d", &head);
+    
+    printf("Arah awal (naik/turun): ");
+    scanf("%s", direction);
+    
+    printf("Jumlah request: ");
+    scanf("%d", &n);
+    
+    printf("Request queue (pisahkan dengan spasi): ");
+    for (int i = 0; i < n; i++) {
+        scanf("%d", &requests[i]);
+    }
+    
+    printf("Pilih algoritma (C-SCAN/C-LOOK): ");
+    scanf("%s", algorithm);
+    
+    if (strcmp(algorithm, "C-SCAN") == 0) {
+        c_scan(head, requests, n, direction);
+    } else if (strcmp(algorithm, "C-LOOK") == 0) {
+        c_look(head, requests, n, direction);
+    } else {
+        printf("Algoritma tidak ada\n");
+    }
+    
+    return 0;
+}
