@@ -1,0 +1,95 @@
+#include <stdlib.h>
+#include <stdio.h>
+
+// Global pointer for "still reachable"
+int *still_reachable_ptr;
+
+int main() {
+    // 1. Definitely Lost
+    // Allocate memory and then lose the pointer to it.
+    int *definitely_lost_ptr = (int *)malloc(50 * sizeof(int)); // Allocating 50 integers
+    if (definitely_lost_ptr == NULL) {
+        perror("malloc for definitely_lost_ptr failed");
+        return 1;
+    }
+    definitely_lost_ptr = NULL; // Lose the original pointer. The allocated memory is now definitely lost.
+
+    // 2. Indirectly Lost
+    // Allocate a structure that contains a pointer, and allocate memory for that inner pointer.
+    // If the outer structure is lost, the inner memory block becomes indirectly lost.
+    typedef struct {
+        char *data;
+        int id;
+    } Node;
+
+    Node *indirect_struct_ptr = (Node *)malloc(sizeof(Node));
+    if (indirect_struct_ptr == NULL) {
+        perror("malloc for indirect_struct_ptr failed");
+        return 1;
+    }
+    indirect_struct_ptr->data = (char *)malloc(100 * sizeof(char)); // Inner allocation
+    if (indirect_struct_ptr->data == NULL) {
+        perror("malloc for indirect_struct_ptr->data failed");
+        free(indirect_struct_ptr);
+        return 1;
+    }
+    // To make it indirectly lost, we need to lose indirect_struct_ptr *without* freeing data.
+    // For valgrind to clearly mark it as indirectly lost, the primary loss should be definite.
+    // A common way is if indirect_struct_ptr itself becomes part of a definitely lost block,
+    // or if it's a local variable whose scope ends and it wasn't freed, but its contents
+    // (indirect_struct_ptr->data) were heap-allocated.
+    // Let's make 'indirect_struct_ptr' itself definitely lost.
+    indirect_struct_ptr = NULL; // This makes both the Node and its 'data' definitely lost.
+                                // Valgrind might just report the sum as definitely lost,
+                                // or it might be more nuanced if a pointer to 'data' still existed elsewhere (not the case here).
+                                // To get a clear "indirectly lost", often it's a chain:
+                                // A points to B, B points to C. If A is definitely lost, B and C are indirectly lost.
+
+    // Let's try a clearer "indirectly lost" scenario:
+    // A root node is allocated. It points to a child node.
+    // The root node is then freed, but the child it pointed to is not.
+    // Or, more simply, a root node is definitely lost, and it holds the only pointer to another allocated block.
+
+    typedef struct ListNode {
+        int value;
+        struct ListNode *next;
+    } ListNode;
+
+    ListNode *root = (ListNode *)malloc(sizeof(ListNode));
+    if (root == NULL) {
+        perror("malloc for root failed");
+        return 1;
+    }
+    root->value = 10;
+    root->next = (ListNode *)malloc(sizeof(ListNode)); // Child node
+    if (root->next == NULL) {
+        perror("malloc for root->next failed");
+        free(root);
+        return 1;
+    }
+    root->next->value = 20;
+    root->next->next = NULL;
+
+    // Now, make 'root' definitely lost. Its child 'root->next' should become indirectly lost.
+    root = NULL;
+
+
+    // 3. Still Reachable
+    // Allocate memory and keep a global pointer to it, or a pointer that is still valid at exit.
+    // The program doesn't free it, but it *could* have.
+    still_reachable_ptr = (int *)malloc(75 * sizeof(int)); // Allocating 75 integers
+    if (still_reachable_ptr == NULL) {
+        perror("malloc for still_reachable_ptr failed");
+        // No need to free previously "lost" memory as this is an example of leaks
+        return 1;
+    }
+    still_reachable_ptr[0] = 123; // Use it to ensure it's not optimized away
+
+    // The program exits here.
+    // - definitely_lost_ptr's memory is definitely lost.
+    // - root's memory is definitely lost, and root->next's memory is indirectly lost.
+    // - still_reachable_ptr's memory is still reachable.
+
+    printf("Program finished. Check valgrind output.\n");
+    return 0;
+}
