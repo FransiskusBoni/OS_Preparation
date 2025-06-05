@@ -61,3 +61,5 @@ It services requests only in one direction of sweep. Requests just behind the he
 
 Use Case: Good for systems with a moderate to heavy load where throughput and average response time are important. Many operating systems use SCAN or its variants (like C-SCAN or LOOK).
 
+compile command:
+tar -czvf UAS-IF260L-NIM-NAMA.tar.gz soal1.c soal1 jawab1.txt
