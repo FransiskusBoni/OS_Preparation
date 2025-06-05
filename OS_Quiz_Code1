@@ -1,0 +1,135 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdbool.h>
+#include <limits.h>
+
+    int LRU(int pages[], int n, int frames){
+        int *memory = (int *)malloc(frames * sizeof(int));
+        int *last_used = (int *)malloc(frames *sizeof(int));
+        int page_faults = 0;
+    
+        // This for initialization
+        for (int i = 0; i < frames; i++){
+            memory[i] = -1;
+            last_used[i] = -1;
+        }
+        
+        for (int i = 0; i < n; i++){
+            bool found = false;
+            
+            // Check for it if its in memory
+            for (int j = 0; j<frames; j++){
+                if (memory[j] == pages[i]) {
+                    found = true;
+                    last_used[j] = i;
+                    break;
+                }
+            }
+            
+            //Handles if its not found 
+            if (!found){
+                page_faults++;
+                int lru_index = 0;
+                int min = last_used[0];
+                
+                for (int j = 1; j<frames; j++){
+                    if (last_used[j] < min){
+                        min = last_used[j];
+                        lru_index = j;
+                    }
+                }
+                
+                //Replace LRU page
+                memory[lru_index] = pages[i];
+                last_used[lru_index];
+            }
+        }
+        
+        free(memory);
+        free(last_used);
+        return page_faults;
+    }
+    
+    int optimal(int pages[], int n, int frames) {
+    int *memory = (int *)malloc(frames * sizeof(int));
+    int page_faults = 0;
+    
+    // Initialize memory
+    for (int i = 0; i < frames; i++) {
+        memory[i] = -1; 
+    }
+    
+    for (int i = 0; i < n; i++) {
+        bool found = false;
+        
+        // Check if page is already in memory
+        for (int j = 0; j < frames; j++) {
+            if (memory[j] == pages[i]) {
+                found = true;
+                break;
+            }
+        }
+        
+        if (!found) {
+            page_faults++;
+            bool empty_frame = false;
+            
+            // Check for empty frames first
+            for (int j = 0; j < frames; j++) {
+                if (memory[j] == -1) {
+                    memory[j] = pages[i];
+                    empty_frame = true;
+                    break;
+                }
+            }
+            
+            if (!empty_frame) {
+                // Find which page to replace
+                int farthest = -1, replace_index = 0;
+                
+                for (int j = 0; j < frames; j++) {
+                    int k;
+                    for (k = i + 1; k < n; k++) {
+                        if (memory[j] == pages[k]) {
+                            if (k > farthest) {
+                                farthest = k;
+                                replace_index = j;
+                            }
+                            break;
+                        }
+                    }
+                    if (k == n) {
+                        replace_index = j;
+                        break;
+                    }
+                }
+                memory[replace_index] = pages[i];
+            }
+        }
+    }
+    
+    free(memory);
+    return page_faults;
+}
+
+int main(){
+    int frames, n;
+    
+    printf("Enter number of frames: ");
+    scanf("%d", &frames);
+    
+    printf("Enter length of page reference: ");
+    scanf("%d", &n);
+    
+    int *pages = (int *)malloc(n * sizeof(int));
+    printf("Enter page reference string: ");
+    for (int i = 0; i < n; i++){
+        scanf("%d", &pages[i]);
+    }
+    
+    printf("\nLRU Page Faults: %d\n", LRU(pages, n, frames));
+    printf("Optimal Page Faulst: %d\n", optimal(pages, n, frames));
+    
+    free(pages);
+    return 0;
+}
