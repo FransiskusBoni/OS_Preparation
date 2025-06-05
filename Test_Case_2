@@ -1,0 +1,240 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h> // For strcmp
+#include <limits.h> // For INT_MAX in SCAN
+
+#define MAX_QUEUE_SIZE 100
+
+// Function to print current state
+void print_step(int current_step, int head_position, int total_movement) {
+    printf("\nSTEP %d\n", current_step);
+    printf("Head: %d\n", head_position);
+    printf("Total pergerakan head: %d\n", total_movement);
+}
+
+// FCFS Algorithm
+void fcfs(int initial_head, int queue[], int n) {
+    printf("\n--- FCFS Algorithm ---\n");
+    int current_head = initial_head;
+    int total_movement = 0;
+    int step = 1;
+
+    print_step(step, current_head, total_movement);
+
+    for (int i = 0; i < n; i++) {
+        step++;
+        total_movement += abs(queue[i] - current_head);
+        current_head = queue[i];
+        print_step(step, current_head, total_movement);
+    }
+    printf("\nFinal total head movement (FCFS): %d\n", total_movement);
+}
+
+// SCAN Algorithm
+// Assumption: Disk travels from initial_head towards 'direction' (1 for higher, -1 for lower tracks)
+// and services requests, then reverses direction when it hits an end.
+// For simplicity, let's assume a disk range, e.g., 0 to 199 or determined by min/max in queue.
+// Let's use max_track as an input or a large enough constant.
+void scan(int initial_head, int queue[], int n, int max_track, int initial_direction) {
+    printf("\n--- SCAN Algorithm ---\n");
+    int current_head = initial_head;
+    int total_movement = 0;
+    int step = 1;
+    int direction = initial_direction; // 1 for up/towards max_track, -1 for down/towards 0
+
+    // Create a copy of the queue to mark serviced requests (-1)
+    int temp_queue[MAX_QUEUE_SIZE];
+    int remaining_requests = n;
+    for(int i=0; i<n; i++) {
+        temp_queue[i] = queue[i];
+    }
+
+    // Sort the queue to make SCAN easier to implement
+    // (though SCAN itself doesn't require pre-sorting of the input for its logic,
+    // processing it in sorted order helps in simulation)
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            if (temp_queue[j] > temp_queue[j + 1] && temp_queue[j] != -1 && temp_queue[j+1] != -1) { // Simple bubble sort
+                int t = temp_queue[j];
+                temp_queue[j] = temp_queue[j+1];
+                temp_queue[j+1] = t;
+            }
+        }
+    }
+    // Re-sort the original queue array for processing (or use a separate sorted copy)
+    int sorted_queue[MAX_QUEUE_SIZE];
+    int k=0;
+    for(int i=0; i<n; i++) {
+        if(queue[i] != -1) sorted_queue[k++] = queue[i]; // Copy valid requests
+    }
+    // Simple sort for demonstration
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            if (sorted_queue[j] > sorted_queue[j + 1]) {
+                int t = sorted_queue[j];
+                sorted_queue[j] = sorted_queue[j+1];
+                sorted_queue[j+1] = t;
+            }
+        }
+    }
+
+
+    print_step(step, current_head, total_movement);
+
+    int visited[MAX_QUEUE_SIZE] = {0}; // 0 if not visited, 1 if visited
+
+    while(remaining_requests > 0) {
+        int serviced_in_pass = 0;
+        if (direction == 1) { // Moving towards max_track
+            for (int i = 0; i < n; i++) { // Iterate through original unsorted queue
+                int best_pick = -1;
+                int min_dist_in_dir = INT_MAX;
+                int pick_idx = -1;
+
+                // Find the closest request in the current direction
+                for(int j=0; j<n; j++){
+                    if(!visited[j] && queue[j] >= current_head && (queue[j] - current_head) < min_dist_in_dir){
+                        min_dist_in_dir = queue[j] - current_head;
+                        best_pick = queue[j];
+                        pick_idx = j;
+                    }
+                }
+
+                if(best_pick != -1){ // Found a request in current direction
+                    step++;
+                    total_movement += abs(best_pick - current_head);
+                    current_head = best_pick;
+                    visited[pick_idx] = 1;
+                    remaining_requests--;
+                    serviced_in_pass = 1;
+                    print_step(step, current_head, total_movement);
+                }
+            }
+            // If requests were serviced and we are not at max_track, continue.
+            // If no requests serviced in this direction, or head is at max_track, change direction.
+            if (serviced_in_pass == 0 || current_head == max_track) { // Reached end or no more requests in this dir
+                 if (remaining_requests > 0 && current_head != max_track) { // only move to end if there are pending requests in other dir
+                    total_movement += abs(max_track - current_head);
+                    current_head = max_track;
+                    step++; // Count movement to the end as a step if it happens
+                    print_step(step, current_head, total_movement);
+                 }
+                direction = -1; // Change direction
+            }
+
+
+        } else { // Moving towards 0
+             for (int i = 0; i < n; i++) { // Iterate through original unsorted queue
+                int best_pick = -1;
+                int min_dist_in_dir = INT_MAX;
+                int pick_idx = -1;
+
+                // Find the closest request in the current direction (sorted helps here)
+                 for(int j=0; j<n; j++){
+                    if(!visited[j] && queue[j] <= current_head && (current_head - queue[j]) < min_dist_in_dir){
+                        min_dist_in_dir = current_head - queue[j];
+                        best_pick = queue[j];
+                        pick_idx = j;
+                    }
+                }
+
+                if(best_pick != -1){ // Found a request in current direction
+                    step++;
+                    total_movement += abs(current_head - best_pick);
+                    current_head = best_pick;
+                    visited[pick_idx] = 1;
+                    remaining_requests--;
+                    serviced_in_pass = 1;
+                    print_step(step, current_head, total_movement);
+                }
+            }
+             if (serviced_in_pass == 0 || current_head == 0) { // Reached end or no more requests in this dir
+                 if (remaining_requests > 0 && current_head != 0) {
+                    total_movement += abs(current_head - 0);
+                    current_head = 0;
+                    step++; // Count movement to the end as a step
+                    print_step(step, current_head, total_movement);
+                 }
+                direction = 1; // Change direction
+            }
+        }
+         if(serviced_in_pass == 0 && remaining_requests > 0){
+            // This case might happen if all remaining requests are in the other direction
+            // and the head is not at an end. The direction will flip.
+            // If direction was 1, it becomes -1. If -1, it becomes 1.
+            // The loop should continue.
+         } else if (serviced_in_pass == 0 && remaining_requests == 0) {
+            break; // All done
+         }
+    }
+    printf("\nFinal total head movement (SCAN): %d\n", total_movement);
+}
+
+
+int main() {
+    int head, n = 0;
+    int queue[MAX_QUEUE_SIZE];
+    char algorithm_choice[10];
+
+    // Example Input from question 
+    // Head: 30
+    // Queue: 90 20 10 33 29 41 32
+    head = 30;
+    int temp_q[] = {90, 20, 10, 33, 29, 41, 32};
+    n = sizeof(temp_q) / sizeof(temp_q[0]);
+    for(int i=0; i<n; i++) queue[i] = temp_q[i];
+
+    // You can make this interactive:
+    // printf("Enter initial head position: ");
+    // scanf("%d", &head);
+    // printf("Enter number of requests in queue: ");
+    // scanf("%d", &n);
+    // printf("Enter the requests (separated by space): ");
+    // for (int i = 0; i < n; i++) {
+    //     scanf("%d", &queue[i]);
+    // }
+
+    printf("Choose algorithm (FCFS or SCAN): ");
+    scanf("%s", algorithm_choice); // 
+
+    if (strcmp(algorithm_choice, "FCFS") == 0) {
+        fcfs(head, queue, n);
+    } else if (strcmp(algorithm_choice, "SCAN") == 0) {
+        int max_track = 199; // Assuming disk tracks 0-199 or derive from queue
+        int initial_direction = 1; // Example: Start by moving towards higher tracks
+        // To be more robust, determine initial direction based on head position relative to requests,
+        // or ask the user. For SCAN, typically you also need to know the disk boundaries.
+        // Let's find max track from queue if not given.
+        int q_max = 0;
+        for(int i=0; i<n; i++) if(queue[i] > q_max) q_max = queue[i];
+        if (q_max > max_track) max_track = q_max; // Or use a fixed one like 199
+
+        // A common way to set initial direction for SCAN:
+        // If head is closer to 0, start moving towards max_track (1)
+        // If head is closer to max_track, start moving towards 0 (-1)
+        // Or, if there are requests on both sides, pick one. Let's default to moving up if requests exist there.
+        int requests_above = 0;
+        int requests_below = 0;
+        for(int i=0; i<n; i++){
+            if(queue[i] > head) requests_above++;
+            if(queue[i] < head) requests_below++;
+        }
+
+        if (requests_above > 0 && requests_below == 0) initial_direction = 1;
+        else if (requests_below > 0 && requests_above == 0) initial_direction = -1;
+        else if (requests_above > 0 && requests_below > 0) {
+             // Default or based on a rule, e.g., go towards nearest end or larger number of requests
+             initial_direction = 1; // Defaulting to up
+        } else { // No requests or all requests at current head
+            initial_direction = 1; // Or doesn't matter
+        }
+
+
+        printf("SCAN will run with max_track = %d, initial_direction = %d (1 for up, -1 for down)\n", max_track, initial_direction);
+        scan(head, queue, n, max_track, initial_direction);
+    } else {
+        printf("Invalid algorithm choice.\n");
+    }
+
+    return 0;
+}
