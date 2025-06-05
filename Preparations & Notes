@@ -1,0 +1,63 @@
+50 bytes of memory were dynamic allocated are no longer usable by the program
+The memory is allocated in 1 distinct block
+"Definetly lost" means no pointer in program that points to the specific memory block anymore
+
+The most common cause of a memory leak in a C program, as indicated by valgrind showing a malloc on line 8 in the main function of pengecekan.c, is failing to call free() for dynamically allocated memory.  Specifically:
+
+memory leaks:
+
+Memory is allocated using malloc (or a similar function).
+The pointer to this allocated memory is either lost (e.g., by reassigning the pointer without freeing the old memory, or the pointer goes out of scope) or the program terminates without deallocating the memory. 
+
+How to avoid leak:
+The general solution to prevent memory leaks is to ensure that every call to a memory allocation function (like malloc, calloc, realloc) has a corresponding call to free() when the memory is no longer needed. 
+
+Keep track of all allocated memory blocks.
+free() the memory once it's certain that it will not be accessed again.
+
+Conclusion from 3 allocs and 2 frees
+If a program has made 3 allocations (allocs) and only 2 deallocations (frees), the conclusion is that one block of allocated memory has not been freed.  This directly implies a memory leak of at least one block. The "total heap usage: 3 allocs, 2 frees, 2,098 bytes allocated" from the valgrind output further supports this, where the "in use at exit: 50 bytes in 1 blocks" quantifies the leaked memory.
+
+You're asked to create a C program (soal1.c) that, when run with valgrind, shows "definitely lost", "indirectly lost", and "still reachable" memory. 
+Test Case 1
+
+Compilation and Valgrind Test:
+
+Save the code as soal1.c.
+Compile: gcc -g soal1.c -o soal1 (the -g flag adds debugging information, which helps valgrind give more precise locations).
+Run with valgrind: valgrind --leak-check=full --show-leak-kinds=all ./soal1
+
+Test Case 2
+
+
+Differences and Explanation:
+
+FCFS (First-Come, First-Served) 
+
+Explanation: This is the simplest disk scheduling algorithm. It processes requests in the order they arrive in the queue. The disk arm moves from its current position to the position of the first request, then to the second, and so on.
+
+Advantages:
+Simple to understand and implement.
+Fair in the sense that every request is eventually serviced; no indefinite postponement (starvation) if requests keep arriving.
+
+Disadvantages:
+Generally inefficient. It does not optimize head movement, leading to potentially very high seek times.
+Performance can be erratic, depending heavily on the arrival order of requests. A scattered set of requests will result in a lot of back-and-forth movement.
+
+Use Case: Suitable for systems with a light load or where simplicity is paramount and performance is not critical. It's often a baseline for comparison.
+
+SCAN (Elevator Algorithm) 
+
+Explanation: The disk arm starts at one end of the disk and moves towards the other end, servicing requests in its path. When it reaches the other end, it reverses direction and continues servicing requests. It behaves like an elevator.
+
+Advantages:
+More efficient than FCFS in terms of average seek time.
+Provides more uniform wait times compared to FCFS.
+Prevents starvation for requests far from the current head as the head will eventually sweep past them.
+
+Disadvantages:
+Can cause requests at the extreme ends of the disk to wait longer, especially if the head has just passed them and is moving in the opposite direction.
+It services requests only in one direction of sweep. Requests just behind the head have to wait for the arm to go to the end of the disk and return.
+
+Use Case: Good for systems with a moderate to heavy load where throughput and average response time are important. Many operating systems use SCAN or its variants (like C-SCAN or LOOK).
+
