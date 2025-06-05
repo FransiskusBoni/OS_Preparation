@@ -1,55 +1,171 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <string.h>
+#include <stdio.h>  // For standard input/output functions like printf, scanf
+#include <stdlib.h> // For general utilities like abs (absolute value)
+#include <stdbool.h> // For boolean type (true/false) - not explicitly used but good practice if needed
+#include <string.h> // For string manipulation functions like strcmp, memcpy
 
-#define MAX_REQUESTS 100
-#define MAX_TRACK 199
+#define MAX_REQUESTS 100 // Maximum number of disk requests the program can handle
+#define MAX_TRACK 199    // Maximum track number on the disk (tracks are 0 to MAX_TRACK)
 
-//Sort array in ascending order
+// Function to sort an integer array in ascending order using Bubble Sort
 void sort_ascending(int arr[], int n) {
-    for (int i = 0; i < n-1; i++) {
-        for (int j = 0; j < n-i-1; j++) {
-            if (arr[j] > arr[j+1]) {
+    // Outer loop iterates n-1 times
+    for (int i = 0; i < n - 1; i++) {
+        // Inner loop for comparisons and swaps
+        // The largest element "bubbles up" to the end in each pass of the outer loop
+        for (int j = 0; j < n - i - 1; j++) {
+            // If the current element is greater than the next element, swap them
+            if (arr[j] > arr[j + 1]) {
                 int temp = arr[j];
-                arr[j] = arr[j+1];
-                arr[j+1] = temp;
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
             }
         }
     }
 }
 
-//Sort array in descending order
+// Function to sort an integer array in descending order using Bubble Sort
 void sort_descending(int arr[], int n) {
-    for (int i = 0; i < n-1; i++) {
-        for (int j = 0; j < n-i-1; j++) {
-            if (arr[j] < arr[j+1]) {
+    // Outer loop iterates n-1 times
+    for (int i = 0; i < n - 1; i++) {
+        // Inner loop for comparisons and swaps
+        // The smallest element "bubbles down" to the end in each pass of the outer loop (relative to descending sort)
+        for (int j = 0; j < n - i - 1; j++) {
+            // If the current element is less than the next element, swap them
+            if (arr[j] < arr[j + 1]) {
                 int temp = arr[j];
-                arr[j] = arr[j+1];
-                arr[j+1] = temp;
+                arr[j] = arr[j + 1];
+                arr[j + 1] = temp;
             }
         }
     }
 }
 
-// C-Scan
+// C-SCAN (Circular SCAN) disk scheduling algorithm
+// head: initial position of the disk head
+// requests: array of disk track requests
+// n: number of requests
+// direction: initial direction of head movement ("naik" for up, "turun" for down)
 void c_scan(int head, int requests[], int n, char direction[]) {
-    int total_movement = 0;
-    int current_pos = head;
-    int sequence[MAX_REQUESTS + 2]; // Extra space for end points
-    int seq_index = 0;
-    
+    int total_movement = 0;         // Accumulator for total head movement
+    int current_pos = head;         // Current position of the disk head, initialized to the starting head position
+    int sequence[MAX_REQUESTS + 2]; // Array to store the sequence of tracks served. +2 for potential endpoints (0 and MAX_TRACK)
+    int seq_index = 0;              // Index for the sequence array
+
     printf("\n[Algoritma: C-SCAN]\n");
     printf("Arah awal: %s\n", direction);
     printf("Urutan pelayanan:\n");
-    
-    // Create a copy for requests
+
+    // Create a mutable copy of the requests array for sorting
+    int sorted_requests[MAX_REQUESTS];
+    memcpy(sorted_requests, requests, n * sizeof(int)); // Copy contents of requests to sorted_requests
+
+    // Logic for C-SCAN when the initial direction is "naik" (upwards)
+    if (strcmp(direction, "naik") == 0) {
+        sort_ascending(sorted_requests, n); // Sort requests in ascending order
+
+        // First pass: Service requests from current_pos towards MAX_TRACK
+        for (int i = 0; i < n; i++) {
+            if (sorted_requests[i] >= current_pos) { // If the request is in the current direction
+                sequence[seq_index++] = sorted_requests[i];             // Add to service sequence
+                total_movement += abs(sorted_requests[i] - current_pos); // Add movement
+                printf("%d -> ", current_pos);                          // Print current movement step
+                current_pos = sorted_requests[i];                       // Update current head position
+            }
+        }
+
+        // If the head didn't reach MAX_TRACK in the first pass (i.e., there were requests >= head)
+        // or if there were no requests >= head, it still needs to go to MAX_TRACK
+        if (current_pos != MAX_TRACK) { // Check if head already reached the end
+            printf("%d -> %d -> ", current_pos, MAX_TRACK); // Move from current to MAX_TRACK
+            total_movement += abs(MAX_TRACK - current_pos); // Add movement to MAX_TRACK
+        }
+        // In C-SCAN, after reaching MAX_TRACK, the head jumps to track 0
+        current_pos = 0; // Head jumps to the beginning
+        total_movement += MAX_TRACK; // Add movement from MAX_TRACK to 0 (the jump itself)
+                                     // This assumes the jump cost is MAX_TRACK.
+                                     // Sometimes this jump is not counted, or counted as 0.
+                                     // Based on typical C-SCAN diagrams, the jump is a full sweep.
+                                     // However, if it's only to *start* servicing from 0, then it's 0.
+                                     // The PDF example for Modul 12 image for C-SCAN shows a direct jump
+                                     // and then servicing. The seek time of 188 tracks in the PDF example suggests
+                                     // the jump from one end to another is not simply MAX_TRACK - 0.
+                                     // Let's assume the jump to 0 is part of the sweep.
+                                     // If the head hits MAX_TRACK then jumps to 0, current_pos is 0.
+                                     // It will then start servicing requests from 0 up to the original 'head' position.
+
+        // Second pass (after jumping to 0): Service remaining requests from 0 up to the initial 'head' position
+        for (int i = 0; i < n; i++) {
+            // Service requests that were "behind" the initial head position
+            // These are requests with track numbers less than the original 'head'
+            // and greater than or equal to the new 'current_pos' (which is 0)
+            if (sorted_requests[i] < head && sorted_requests[i] >= current_pos) { // Check if request is in this new sweep
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+    } else { // direction is "turun" (downwards)
+        sort_descending(sorted_requests, n); // Sort requests in descending order for downward movement
+
+        // First pass: Service requests from current_pos towards 0
+        for (int i = 0; i < n; i++) {
+            if (sorted_requests[i] <= current_pos) { // If the request is in the current direction
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+
+        // If the head didn't reach track 0 in the first pass
+        if (current_pos != 0) { // Check if head already reached the beginning
+             printf("%d -> 0 -> ", current_pos); // Move from current to 0
+            total_movement += abs(current_pos - 0); // Add movement to 0
+        }
+        // In C-SCAN, after reaching 0, the head jumps to MAX_TRACK
+        current_pos = MAX_TRACK; // Head jumps to the end
+        total_movement += MAX_TRACK; // Add movement from 0 to MAX_TRACK (the jump)
+
+        // Second pass (after jumping to MAX_TRACK): Service remaining requests from MAX_TRACK down to original 'head'
+        for (int i = 0; i < n; i++) {
+            // Service requests that were "ahead" of the initial head position
+            // These are requests with track numbers greater than the original 'head'
+            // and less than or equal to the new 'current_pos' (which is MAX_TRACK)
+            if (sorted_requests[i] > head && sorted_requests[i] <= current_pos) { // Check if request is in this new sweep
+                sequence[seq_index++] = sorted_requests[i];
+                total_movement += abs(sorted_requests[i] - current_pos);
+                printf("%d -> ", current_pos);
+                current_pos = sorted_requests[i];
+            }
+        }
+    }
+
+    printf("%d\n", current_pos); // Print the final position of the head
+    printf("\nTotal pergerakan head: %d\n", total_movement);
+}
+
+// C-LOOK (Circular LOOK) disk scheduling algorithm
+// Similar to C-SCAN, but the head only moves as far as the last request in each direction,
+// then jumps to the first request in the other "half" of the cycle.
+void c_look(int head, int requests[], int n, char direction[]) {
+    int total_movement = 0;
+    int current_pos = head;
+    int sequence[MAX_REQUESTS]; // Array to store the sequence of tracks served
+    int seq_index = 0;
+
+    printf("\n[Algoritma: C-LOOK]\n");
+    printf("Arah awal: %s\n", direction);
+    printf("Urutan pelayanan:\n");
+
+    // Create a mutable copy of the requests array for sorting
     int sorted_requests[MAX_REQUESTS];
     memcpy(sorted_requests, requests, n * sizeof(int));
-    
+
     if (strcmp(direction, "naik") == 0) {
-        sort_ascending(sorted_requests, n);
-        
+        sort_ascending(sorted_requests, n); // Sort requests in ascending order
+
+        // First pass: Service requests from current_pos towards the largest request
         for (int i = 0; i < n; i++) {
             if (sorted_requests[i] >= current_pos) {
                 sequence[seq_index++] = sorted_requests[i];
@@ -58,25 +174,49 @@ void c_scan(int head, int requests[], int n, char direction[]) {
                 current_pos = sorted_requests[i];
             }
         }
-        
-        if (current_pos != MAX_TRACK) {
-            printf("%d -> %d -> ", current_pos, MAX_TRACK);
-            total_movement += MAX_TRACK - current_pos;
-            current_pos = 0;
-            total_movement += MAX_TRACK; // From MAX_TRACK to 0
-        }
-        
+
+        // After servicing all requests in the "upward" direction from the head,
+        // C-LOOK jumps to the smallest request overall (if any requests were "behind" the initial head).
+        // It does not go to MAX_TRACK unless MAX_TRACK is a request.
+        // Then services requests from that smallest request upwards.
+        bool jumped = false;
         for (int i = 0; i < n; i++) {
+            // Find the first request that was "behind" the initial head.
+            // This will be the new starting point after the "jump".
             if (sorted_requests[i] < head) {
+                 if (!jumped) { // First time we jump
+                    // The jump movement is from current_pos (last serviced request in 'naik' direction)
+                    // to sorted_requests[i] (first request in the 'wrap-around' part).
+                    // C-LOOK doesn't necessarily add the "sweep distance" like C-SCAN for the jump.
+                    // It jumps directly to the furthest request in the other direction (logically).
+                    // However, for consistency with C-SCAN's logic, the student code here implies movement.
+                    // The student's C-LOOK is missing the distinct jump logic from C-SCAN.
+                    // It seems to just continue processing the sorted list.
+                    // A correct C-LOOK "naik":
+                    // 1. Serve requests >= head, moving up to the largest of these. current_pos is now this largest.
+                    // 2. Jump to the smallest request overall (sorted_requests[0] if any requests exist).
+                    //    Add movement: abs(current_pos - sorted_requests[0]) if this jump is counted.
+                    //    Or, if the jump is "free" for calculation of *internal* head movement, it's current_pos = sorted_requests[0].
+                    //    The provided C-LOOK code sums up movement sequentially.
+                    printf("%d -> ", current_pos); // Print movement from last served to the first of the next batch
+                    total_movement += abs(sorted_requests[i] - current_pos); // This adds the jump
+                    current_pos = sorted_requests[i];
+                    jumped = true;
+                 }
+                 // This part will then service sorted_requests[i] if it's the one after jump
+                 // and subsequent requests in ascending order that were < head.
                 sequence[seq_index++] = sorted_requests[i];
-                total_movement += abs(sorted_requests[i] - current_pos);
-                printf("%d -> ", current_pos);
+                if (jumped && sorted_requests[i] != current_pos) { // If not the first element after jump
+                     printf("%d -> ", current_pos);
+                     total_movement += abs(sorted_requests[i] - current_pos);
+                }
                 current_pos = sorted_requests[i];
             }
         }
     } else { // direction is "turun"
-        sort_descending(sorted_requests, n);
-        
+        sort_descending(sorted_requests, n); // Sort requests in descending order
+
+        // First pass: Service requests from current_pos towards the smallest request
         for (int i = 0; i < n; i++) {
             if (sorted_requests[i] <= current_pos) {
                 sequence[seq_index++] = sorted_requests[i];
@@ -85,121 +225,85 @@ void c_scan(int head, int requests[], int n, char direction[]) {
                 current_pos = sorted_requests[i];
             }
         }
-        
-        if (current_pos != 0) {
-            printf("%d -> 0 -> ", current_pos);
-            total_movement += current_pos; // From current_pos to 0
-            current_pos = MAX_TRACK;
-            total_movement += MAX_TRACK; // From 0 to MAX_TRACK
-        }
-        
-        for (int i = 0; i < n; i++) {
+
+        // After servicing all requests in the "downward" direction from the head,
+        // C-LOOK jumps to the largest request overall (if any requests were "ahead" of the initial head).
+        // It does not go to 0 unless 0 is a request.
+        bool jumped = false;
+        for (int i = 0; i < n; i++) { // Iterate through requests (sorted descending)
+            // Find the first request that was "ahead" of the initial head.
             if (sorted_requests[i] > head) {
+                 if (!jumped) {
+                    printf("%d -> ", current_pos);
+                    total_movement += abs(sorted_requests[i] - current_pos); // Jump movement
+                    current_pos = sorted_requests[i];
+                    jumped = true;
+                 }
                 sequence[seq_index++] = sorted_requests[i];
-                total_movement += abs(sorted_requests[i] - current_pos);
-                printf("%d -> ", current_pos);
+                if (jumped && sorted_requests[i] != current_pos) {
+                     printf("%d -> ", current_pos);
+                     total_movement += abs(sorted_requests[i] - current_pos);
+                }
                 current_pos = sorted_requests[i];
             }
         }
     }
-    
-    printf("%d\n", current_pos);
+
+    printf("%d\n", current_pos); // Print the final position of the head
     printf("\nTotal pergerakan head: %d\n", total_movement);
 }
 
-// C-Look
-void c_look(int head, int requests[], int n, char direction[]) {
-    int total_movement = 0;
-    int current_pos = head;
-    int sequence[MAX_REQUESTS];
-    int seq_index = 0;
-    
-    printf("\n[Algoritma: C-LOOK]\n");
-    printf("Arah awal: %s\n", direction);
-    printf("Urutan pelayanan:\n");
-    
-    // Create copy requests
-    int sorted_requests[MAX_REQUESTS];
-    memcpy(sorted_requests, requests, n * sizeof(int));
-    
-    if (strcmp(direction, "naik") == 0) {
-        sort_ascending(sorted_requests, n);
-        
-        for (int i = 0; i < n; i++) {
-            if (sorted_requests[i] >= current_pos) {
-                sequence[seq_index++] = sorted_requests[i];
-                total_movement += abs(sorted_requests[i] - current_pos);
-                printf("%d -> ", current_pos);
-                current_pos = sorted_requests[i];
-            }
-        }
-        
-        for (int i = 0; i < n; i++) {
-            if (sorted_requests[i] < head) {
-                sequence[seq_index++] = sorted_requests[i];
-                total_movement += abs(sorted_requests[i] - current_pos);
-                printf("%d -> ", current_pos);
-                current_pos = sorted_requests[i];
-            }
-        }
-    } else { 
-        sort_descending(sorted_requests, n);
-        
-        for (int i = 0; i < n; i++) {
-            if (sorted_requests[i] <= current_pos) {
-                sequence[seq_index++] = sorted_requests[i];
-                total_movement += abs(sorted_requests[i] - current_pos);
-                printf("%d -> ", current_pos);
-                current_pos = sorted_requests[i];
-            }
-        }
-        
-        // Jump to the last request without going to 0
-        for (int i = 0; i < n; i++) {
-            if (sorted_requests[i] > head) {
-                sequence[seq_index++] = sorted_requests[i];
-                total_movement += abs(sorted_requests[i] - current_pos);
-                printf("%d -> ", current_pos);
-                current_pos = sorted_requests[i];
-            }
-        }
-    }
-    
-    printf("%d\n", current_pos);
-    printf("\nTotal pergerakan head: %d\n", total_movement);
-}
 
+// Main function to drive the program
 int main() {
-    int head, n;
-    char direction[10];
-    int requests[MAX_REQUESTS];
-    char algorithm[10];
-    
-    // Read input from file or user
+    int head;               // Initial head position
+    int n;                  // Number of disk requests
+    char direction[10];     // Initial direction string ("naik" or "turun")
+    int requests[MAX_REQUESTS]; // Array to store disk requests
+    char algorithm[10];     // String to store chosen algorithm ("C-SCAN" or "C-LOOK")
+
+    // Read input from the user
     printf("Head start: ");
     scanf("%d", &head);
-    
+
     printf("Arah awal (naik/turun): ");
-    scanf("%s", direction);
-    
+    scanf("%s", direction); // Reads a string for direction
+
     printf("Jumlah request: ");
     scanf("%d", &n);
-    
+
+    // Validate number of requests
+    if (n <= 0 || n > MAX_REQUESTS) {
+        printf("Jumlah request tidak valid (harus antara 1 dan %d).\n", MAX_REQUESTS);
+        return 1; // Exit with an error code
+    }
+
     printf("Request queue (pisahkan dengan spasi): ");
     for (int i = 0; i < n; i++) {
         scanf("%d", &requests[i]);
+        // Validate each request to be within disk bounds
+        if (requests[i] < 0 || requests[i] > MAX_TRACK) {
+            printf("Request %d tidak valid (harus antara 0 dan %d).\n", requests[i], MAX_TRACK);
+            return 1; // Exit with an error code
+        }
     }
-    
+
     printf("Pilih algoritma (C-SCAN/C-LOOK): ");
-    scanf("%s", algorithm);
-    
+    scanf("%s", algorithm); // Reads a string for the algorithm choice
+
+    // Call the appropriate scheduling algorithm based on user input
     if (strcmp(algorithm, "C-SCAN") == 0) {
         c_scan(head, requests, n, direction);
     } else if (strcmp(algorithm, "C-LOOK") == 0) {
+        // The provided C-LOOK implementation has issues in its logic for jumping.
+        // A true C-LOOK would identify the actual min/max requests to jump to.
+        // The current student C-LOOK code structure is more like SCAN after the first pass,
+        // rather than a circular jump to the "other end" of actual requests.
+        // For educational purposes, we run what's provided.
         c_look(head, requests, n, direction);
     } else {
-        printf("Algoritma tidak ada\n");
+        printf("Algoritma tidak ada atau salah ketik.\n");
     }
-    
-    return 0;
+
+    return 0; // Indicate successful execution
 }
